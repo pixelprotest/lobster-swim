@@ -4,9 +4,9 @@ export const manifest = {
     id: 'particle',
     name: 'Particles',
     description: 'Visual effects for collect, death, bonus.',
-    category: 'pickups',
+    category: 'effects',
     tags: [],
-    configKey: null,
+    configKey: 'particles',
 };
 
 export const defaults = { type: 'bubble', count: 8 };
