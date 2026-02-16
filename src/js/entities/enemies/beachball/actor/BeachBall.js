@@ -95,6 +95,11 @@ export class BeachBall {
         renderBeachBall(ctx, this.x, this.y, this.radius, this.rotation, this.colors);
     }
 
+    getBounds() {
+        const d = this.radius * 2;
+        return { x: this.x - this.radius, y: this.y - this.radius, width: d, height: d };
+    }
+
     /**
      * Check collision with player and apply knockback
      * Returns knockback vector if hit, null if no hit
