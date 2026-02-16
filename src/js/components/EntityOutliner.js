@@ -1,18 +1,40 @@
 /**
  * EntityOutliner.js - Dev mode entity outliner panel (left sidebar)
  * Read-only hierarchical tree view of all entities in the scene.
+ * Categories are auto-discovered from preview.js manifests.
  * Usage: <entity-outliner></entity-outliner>
  */
 
-import { ENTITY_CONFIG } from './EntityInspector.js';
+const previewModules = import.meta.glob('/src/js/entities/**/preview.js', { eager: true });
 
-const CATEGORIES = [
-    { label: 'Hero', keys: ['player'] },
-    { label: 'Enemies', keys: ['hooks', 'cages', 'nets', 'forks'] },
-    { label: 'Pickups', keys: ['bubbles', 'fish', 'pearl'] },
-    { label: 'Mechanics', keys: ['oceanCurrent'] },
-    { label: 'Effects', keys: ['particles'] }
-];
+const CATEGORY_LABELS = {
+    hero: 'Hero',
+    enemies: 'Enemies',
+    pickups: 'Pickups',
+    mechanics: 'Mechanics',
+    effects: 'Effects',
+};
+
+const CATEGORY_ORDER = ['hero', 'enemies', 'pickups', 'mechanics', 'effects', 'other'];
+
+// Build registry: configKey → { label, category }
+// and categories: categoryId → [configKey, ...]
+function buildRegistry() {
+    const registry = {};
+    const categories = {};
+
+    for (const mod of Object.values(previewModules)) {
+        const m = mod.manifest;
+        if (!m || !m.configKey) continue;
+        registry[m.configKey] = { label: m.name, category: m.category };
+        if (!categories[m.category]) categories[m.category] = [];
+        categories[m.category].push(m.configKey);
+    }
+
+    return { registry, categories };
+}
+
+const { registry: REGISTRY, categories: DISCOVERED_CATEGORIES } = buildRegistry();
 
 class EntityOutliner extends HTMLElement {
     constructor() {
@@ -154,6 +176,27 @@ class EntityOutliner extends HTMLElement {
         }
     }
 
+    _getCategories(entities) {
+        const assigned = new Set();
+        const result = [];
+
+        for (const catId of CATEGORY_ORDER) {
+            if (catId === 'other') continue;
+            const keys = (DISCOVERED_CATEGORIES[catId] || []).filter(k => k in entities);
+            if (keys.length === 0) continue;
+            keys.forEach(k => assigned.add(k));
+            result.push({ label: CATEGORY_LABELS[catId] || catId, keys });
+        }
+
+        // Collect any entity keys not covered by manifests into "Other"
+        const otherKeys = Object.keys(entities).filter(k => !assigned.has(k));
+        if (otherKeys.length > 0) {
+            result.push({ label: 'Other', keys: otherKeys });
+        }
+
+        return result;
+    }
+
     _buildAll() {
         const entities = window.gameDevGetEntities?.();
         if (!entities) return;
@@ -161,7 +204,9 @@ class EntityOutliner extends HTMLElement {
         const content = this.shadowRoot.getElementById('content');
         content.innerHTML = '';
 
-        for (const category of CATEGORIES) {
+        const categories = this._getCategories(entities);
+
+        for (const category of categories) {
             const catEl = document.createElement('div');
             catEl.className = 'category';
             const catKey = category.label;
@@ -192,45 +237,37 @@ class EntityOutliner extends HTMLElement {
 
     _buildCategoryItems(body, keys, entities) {
         for (const key of keys) {
-            const config = ENTITY_CONFIG[key];
             const entity = entities[key];
+            const info = REGISTRY[key];
+            const label = info ? info.label : key;
 
-            // Particles have no ENTITY_CONFIG entry — handle as special array
-            if (!config) {
-                const arr = entity || [];
-                this._buildArrayType(body, key, this._labelFor(key), arr, false);
-                continue;
-            }
-
-            if (config.singleton) {
+            if (Array.isArray(entity)) {
+                this._buildArrayType(body, key, label, entity);
+            } else {
+                // Singleton
                 const row = document.createElement('div');
                 row.className = 'singleton-row';
-                if (config.nullable && entity == null) {
+                if (entity == null) {
                     row.innerHTML = `
-                        <span class="type-label">${config.label}</span>
+                        <span class="type-label">${label}</span>
                         <span class="not-spawned">not spawned</span>
                     `;
-                } else if (entity) {
+                } else {
                     row.classList.add('selectable');
                     row.setAttribute('data-select', key);
                     const coords = this._formatCoords(entity);
                     row.innerHTML = `
-                        <span class="type-label">${config.label}</span>
+                        <span class="type-label">${label}</span>
                         <span class="singleton-coords" data-coords="${key}">${coords}</span>
                     `;
                     row.addEventListener('click', (e) => this._handleSelect(key, null, e));
-                } else {
-                    row.innerHTML = `<span class="type-label">${config.label}</span>`;
                 }
                 body.appendChild(row);
-            } else {
-                const arr = entity || [];
-                this._buildArrayType(body, key, config.label, arr, true);
             }
         }
     }
 
-    _buildArrayType(body, key, label, arr, hasConfig) {
+    _buildArrayType(body, key, label, arr) {
         const typeCollapsed = this._typeCollapsed[key] ?? (arr.length > 10);
         const hasInstances = arr.length > 0;
 
@@ -344,55 +381,48 @@ class EntityOutliner extends HTMLElement {
         return xStr || yStr;
     }
 
-    _labelFor(key) {
-        const labels = { particles: 'Particles' };
-        return labels[key] || key;
-    }
-
     _refresh() {
         const entities = window.gameDevGetEntities?.();
         if (!entities) return;
 
         let needsRebuild = false;
 
-        // Check array length changes
-        for (const category of CATEGORIES) {
+        const categories = this._getCategories(entities);
+
+        for (const category of categories) {
             for (const key of category.keys) {
-                const config = ENTITY_CONFIG[key];
                 const entity = entities[key];
 
-                if (config && config.singleton) {
-                    if (config.nullable) {
-                        const row = this.shadowRoot.querySelector(`[data-coords="${key}"]`);
-                        const notSpawned = row === null;
-                        if ((entity == null) !== notSpawned) {
-                            // Check more carefully — if not spawned label exists vs coords
-                            needsRebuild = true;
-                            break;
-                        }
-                    }
-                    // Update singleton coords
-                    const coordsEl = this.shadowRoot.querySelector(`[data-coords="${key}"]`);
-                    if (coordsEl && entity) {
-                        coordsEl.textContent = this._formatCoords(entity);
-                    }
-                } else {
-                    const arr = entity || [];
+                if (Array.isArray(entity)) {
                     const countEl = this.shadowRoot.querySelector(`[data-count="${key}"]`);
                     if (countEl) {
                         const displayed = countEl.textContent;
-                        const expected = `(${arr.length})`;
+                        const expected = `(${entity.length})`;
                         if (displayed !== expected) {
                             needsRebuild = true;
                             break;
                         }
+                    } else {
+                        needsRebuild = true;
+                        break;
                     }
 
-                    // Update instance coords
-                    arr.forEach((inst, i) => {
+                    entity.forEach((inst, i) => {
                         const el = this.shadowRoot.querySelector(`[data-inst-coords="${key}[${i}]"]`);
                         if (el) el.textContent = this._formatCoords(inst);
                     });
+                } else {
+                    // Singleton — check spawn/despawn transitions
+                    const coordsEl = this.shadowRoot.querySelector(`[data-coords="${key}"]`);
+                    const wasSpawned = coordsEl !== null;
+                    const isSpawned = entity != null;
+                    if (wasSpawned !== isSpawned) {
+                        needsRebuild = true;
+                        break;
+                    }
+                    if (coordsEl && entity) {
+                        coordsEl.textContent = this._formatCoords(entity);
+                    }
                 }
             }
             if (needsRebuild) break;

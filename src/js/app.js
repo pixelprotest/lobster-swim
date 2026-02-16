@@ -1270,7 +1270,8 @@ window.gameDevSetPaused = (val) => {
 window.gameDevIsPaused = () => paused;
 
 window.gameDevGetEntities = () => ({
-    player, bubbles, hooks, cages, nets, forks, fish, pearl, oceanCurrent, particles
+    player, bubbles, hooks, cages, nets, forks, seagulls, beachBalls,
+    fish, pearl, oceanCurrent, particles
 });
 
 window.gameDevSelectedEntities = [];
@@ -1311,13 +1312,13 @@ window.gameDevPickEntityAt = (canvasX, canvasY) => {
         }
     };
 
-    const arrayKeys = ['hooks', 'cages', 'nets', 'forks', 'bubbles', 'particles'];
-    for (const key of arrayKeys) {
-        (entities[key] || []).forEach((e, i) => check(key, e, i));
+    for (const [key, val] of Object.entries(entities)) {
+        if (Array.isArray(val)) {
+            val.forEach((e, i) => check(key, e, i));
+        } else if (val && typeof val === 'object') {
+            check(key, val, null);
+        }
     }
-    if (entities.player) check('player', entities.player, null);
-    if (entities.fish) check('fish', entities.fish, null);
-    if (entities.pearl) check('pearl', entities.pearl, null);
 
     return best;
 };
