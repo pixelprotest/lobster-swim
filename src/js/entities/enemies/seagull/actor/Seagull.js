@@ -93,6 +93,12 @@ export class Seagull {
         ctx.restore();
     }
 
+    getBounds() {
+        const w = 50; // wingspan
+        const h = this.diving ? 40 : 24;
+        return { x: this.x - w / 2, y: this.y - h / 2, width: w, height: h };
+    }
+
     checkCollision(player, invincible = false) {
         if (invincible) return false;
         
