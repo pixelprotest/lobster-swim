@@ -87,6 +87,10 @@
             <button onclick="devSpawnFish()" style="background: #442; color: #fff; border: 1px solid #884; padding: 5px; cursor: pointer;">Spawn Fish 🐟</button>
             <button onclick="devAddLife()" style="background: #442; color: #fff; border: 1px solid #884; padding: 5px; cursor: pointer;">+1 Life ❤️</button>
             <button onclick="devRemoveLife()" style="background: #442; color: #fff; border: 1px solid #884; padding: 5px; cursor: pointer;">-1 Life 💔</button>
+            <button onclick="devTogglePixelFilter()" id="pixel-btn" style="background: #224; color: #fff; border: 1px solid #448; padding: 5px; cursor: pointer;">Pixels: ON</button>
+            <button onclick="devToggleSmoothing()" id="smooth-btn" style="background: #224; color: #fff; border: 1px solid #448; padding: 5px; cursor: pointer;">Smooth: OFF</button>
+            <label style="color:#fff; font-size:12px; display:flex; align-items:center; gap:2px;">W:<input id="px-w" type="number" value="5" min="1" max="20" style="width:40px; background:#112; color:#fff; border:1px solid #448; padding:2px 4px; font-family:monospace; font-size:12px;" onchange="devSetPixelWidth(this.value)"></label>
+            <label style="color:#fff; font-size:12px; display:flex; align-items:center; gap:2px;">H:<input id="px-h" type="number" value="5" min="1" max="20" style="width:40px; background:#112; color:#fff; border:1px solid #448; padding:2px 4px; font-family:monospace; font-size:12px;" onchange="devSetPixelHeight(this.value)"></label>
             <button onclick="toggleDevPanel()" style="background: #333; color: #888; border: 1px solid #555; padding: 5px; cursor: pointer;">Close</button>
         </div>
     </div>
@@ -162,6 +166,16 @@
         function devSpawnFish() { window.gameDevSpawnFish?.(); }
         function devAddLife() { window.gameDevAddLife?.(); }
         function devRemoveLife() { window.gameDevRemoveLife?.(); }
+        function devTogglePixelFilter() {
+            const on = window.gameDevTogglePixelFilter?.();
+            document.getElementById('pixel-btn').textContent = 'Pixels: ' + (on ? 'ON' : 'OFF');
+        }
+        function devToggleSmoothing() {
+            const on = window.gameDevToggleSmoothing?.();
+            document.getElementById('smooth-btn').textContent = 'Smooth: ' + (on ? 'ON' : 'OFF');
+        }
+        function devSetPixelWidth(v) { window.gameDevSetPixelWidth?.(Number(v)); }
+        function devSetPixelHeight(v) { window.gameDevSetPixelHeight?.(Number(v)); }
 
         // Canvas click: pick entity in dev mode (supports Ctrl/Shift multi-select)
         document.getElementById('game').addEventListener('click', (e) => {

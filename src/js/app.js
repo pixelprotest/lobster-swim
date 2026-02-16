@@ -5,6 +5,7 @@
 import { Lobster, Hook, Cage, Bubble, GoldenFish, Net, Fork, Pearl, Seagull, BeachBall } from './entities/index.js';
 import { Particle } from './entities/effects/particle/actor/Particle.js';
 import { Audio } from './audio-module.js';
+import { pixelFilter } from './effects/PixelFilter.js';
 import { OceanCurrent } from './entities/mechanics/ocean-current/actor/OceanCurrent.js';
 import { Ocean } from './entities/environments/ocean/actor/Ocean.js';
 import { Tank } from './entities/environments/tank/actor/Tank.js';
@@ -756,6 +757,12 @@ function render() {
         ctx.restore();
     }
 
+    ctx.restore();
+}
+
+function renderUI() {
+    ctx.save();
+
     // Score popups
     scorePopups.forEach(p => {
         const alpha = Math.min(1, p.timer / 15);
@@ -770,7 +777,7 @@ function render() {
         ctx.fillText(p.text, p.x, p.startY - rise);
         ctx.restore();
     });
-    
+
     // Combo popups
     comboPopups.forEach(p => {
         const alpha = Math.min(1, p.timer / 20);
@@ -785,7 +792,7 @@ function render() {
         ctx.fillText(p.text, p.x, p.y);
         ctx.restore();
     });
-    
+
     // Combo meter (top of screen, only when active)
     if (comboCount > 1 && !deathAnimating) {
         ctx.save();
@@ -794,15 +801,15 @@ function render() {
         const barX = CANVAS_WIDTH / 2 - barWidth / 2;
         const barY = 15;
         const progress = comboTimer / COMBO_TIMEOUT;
-        
+
         // Background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
-        
+
         // Timer bar
         ctx.fillStyle = getComboColor();
         ctx.fillRect(barX, barY, barWidth * progress, barHeight);
-        
+
         // Combo text
         ctx.font = 'bold 14px monospace';
         ctx.textAlign = 'center';
@@ -812,7 +819,7 @@ function render() {
         ctx.fillText(`${comboCount}x COMBO`, CANVAS_WIDTH / 2, barY + 25);
         ctx.restore();
     }
-    
+
     // Ocean current direction indicator (bottom-left compass)
     if (LEVELS[currentLevel].mechanics.includes('oceanCurrent') && oceanCurrent && !deathAnimating) {
         ctx.save();
@@ -820,7 +827,7 @@ function render() {
         const compassY = CANVAS_HEIGHT - 50;
         const compassRadius = 25;
         const info = oceanCurrent.getInfo();
-        
+
         // Outer ring (dark with glow)
         ctx.beginPath();
         ctx.arc(compassX, compassY, compassRadius, 0, Math.PI * 2);
@@ -829,12 +836,12 @@ function render() {
         ctx.strokeStyle = 'rgba(68, 136, 170, 0.6)';
         ctx.lineWidth = 2;
         ctx.stroke();
-        
+
         // Direction arrow (points where current pushes you)
         ctx.save();
         ctx.translate(compassX, compassY);
         ctx.rotate(info.angle);
-        
+
         // Arrow body
         ctx.beginPath();
         ctx.moveTo(-compassRadius * 0.6, 0);
@@ -843,7 +850,7 @@ function render() {
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.stroke();
-        
+
         // Arrow head
         ctx.beginPath();
         ctx.moveTo(compassRadius * 0.6, 0);
@@ -851,9 +858,9 @@ function render() {
         ctx.moveTo(compassRadius * 0.6, 0);
         ctx.lineTo(compassRadius * 0.3, compassRadius * 0.25);
         ctx.stroke();
-        
+
         ctx.restore();
-        
+
         // Strength indicator (pulsing outer glow)
         const pulse = 0.5 + Math.sin(Date.now() * 0.003) * 0.3;
         const glowSize = compassRadius + 5 + (info.strength * 10 * pulse);
@@ -862,20 +869,19 @@ function render() {
         ctx.strokeStyle = `rgba(68, 136, 255, ${0.2 * pulse})`;
         ctx.lineWidth = 2;
         ctx.stroke();
-        
+
         // "CURRENT" label
         ctx.font = '9px monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(68, 136, 170, 0.8)';
         ctx.fillText('CURRENT', compassX, compassY + compassRadius + 12);
-        
+
         ctx.restore();
     }
-    
+
     // Combo milestone screen flash
     if (comboFlash > 0) {
         const flashAlpha = (comboFlash / 20) * 0.4;
-        ctx.fillStyle = comboFlashColor.replace(')', `, ${flashAlpha})`).replace('rgb', 'rgba').replace('#', '');
         // Convert hex to rgba for flash
         const hex = comboFlashColor;
         const r = parseInt(hex.slice(1, 3), 16);
@@ -884,7 +890,7 @@ function render() {
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${flashAlpha})`;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
-    
+
     // NEW BEST! celebration text
     if (newBestTimer > 0) {
         const pulse = 1 + Math.sin(newBestTimer * 0.2) * 0.1;
@@ -897,27 +903,27 @@ function render() {
         ctx.fillText('✨ NEW BEST! ✨', CANVAS_WIDTH / 2, 80);
         ctx.restore();
     }
-    
+
     // Level transition effect
     if (levelTransition && levelTransitionTimer > 0) {
         ctx.save();
-        
+
         // White flash (fades out)
         if (levelTransitionTimer > 100) {
             const flashAlpha = (levelTransitionTimer - 100) / 20 * 0.8;
             ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(flashAlpha, 0.8)})`;
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         }
-        
+
         // Level name announcement
         const progress = 1 - (levelTransitionTimer / 120);
         const slideIn = progress < 0.2 ? progress / 0.2 : 1;
         const fadeOut = progress > 0.7 ? 1 - (progress - 0.7) / 0.3 : 1;
         const alpha = slideIn * fadeOut;
-        
+
         ctx.globalAlpha = alpha;
         ctx.textAlign = 'center';
-        
+
         // Big glowing level name
         const pulse = 1 + Math.sin(levelTransitionTimer * 0.15) * 0.05;
         ctx.font = `bold ${48 * pulse}px monospace`;
@@ -933,10 +939,10 @@ function render() {
             ctx.fillStyle = '#ffaa00';
             ctx.fillText(LEVELS[transitionLevel].subtitle, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
         }
-        
+
         ctx.restore();
     }
-    
+
     // Paused overlay
     if (paused) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -964,6 +970,8 @@ function gameLoop() {
 
     if (!paused) update();
     render();
+    pixelFilter.apply(canvas, ctx);
+    renderUI();
 
     // Continue loop during death animation or normal play
     if (!gameOver || deathAnimating) {
@@ -1110,6 +1118,14 @@ window.gameDevRemoveLife = () => {
     if (!gameStarted) return;
     loseLife();
 };
+
+window.gameDevTogglePixelFilter = () => {
+    pixelFilter.enabled = !pixelFilter.enabled;
+    return pixelFilter.enabled;
+};
+window.gameDevSetPixelWidth = (v) => { pixelFilter.pixelWidth = v; return pixelFilter.pixelWidth; };
+window.gameDevSetPixelHeight = (v) => { pixelFilter.pixelHeight = v; return pixelFilter.pixelHeight; };
+window.gameDevToggleSmoothing = () => { pixelFilter.smoothing = !pixelFilter.smoothing; return pixelFilter.smoothing; };
 
 window.gameDevSetPaused = (val) => {
     if (!gameStarted || gameOver) return;

@@ -24,17 +24,23 @@ Requires Docker — no Node or other dependencies needed on the host machine. De
 `src/index.html` loads `src/js/app.js` (the main game loop, ~980 lines). **Not** `main.js` or `game.js` — those are unused legacy files.
 
 ### Entity Pattern (critical)
-Every game object follows this two-layer pattern:
+Every game object lives in a per-entity folder with this structure:
 
-1. **Game class** (`src/js/entities/<category>/<Name>.js`) — owns state, physics, collision detection. Imports the current versioned renderer for drawing.
-2. **Versioned renderer** (`src/js/entities/<category>/versions/<Name>.vXXX.js`) — pure `render(ctx, x, y, ...params)` function with no state. Multiple versions can coexist; the game class imports whichever is marked `@current true`.
+```
+src/js/entities/<category>/<entity-name>/
+├── actor/<Name>.js       # Game class — owns state, physics, collision detection
+├── render/<Name>.vXXX.js # Versioned renderer — pure render(ctx, x, y, ...params), no state
+└── preview.js            # Asset library manifest — auto-discovered via import.meta.glob
+```
+
+Multiple renderer versions can coexist in `render/`; the actor imports whichever is marked `@current true`.
 
 Categories: `hero/`, `enemies/`, `pickups/`, `effects/`, `mechanics/`, `environments/`
 
 Shared utilities (color conversion, presets) live in `src/js/entities/utils/`.
 
 ### Adding/Modifying Entities
-When creating a new entity or version, you **must** also register it in the asset library (`src/pages/assets.html`) — add canvas, import renderer, wire sliders, add to the `renderers` object and `animate()` loop. See PRACTICES.md for the full 7-step checklist.
+When creating a new entity or version, you **must** create a `preview.js` in the entity folder — this is how the asset library auto-discovers it. No manual HTML wiring needed. See PRACTICES.md for the full checklist.
 
 ### Web Components
 `src/js/components/` contains Shadow DOM web components (BottomNav, TitleScreen, GameOver, Leaderboard). Custom events must use `bubbles: true, composed: true` to escape shadow DOM.
